@@ -1,0 +1,41 @@
+version: "3.8"
+services:
+  db:
+    image: postgres:15.1
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_DB: blogdb
+      POSTGRES_PASSWORD: root
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+  redis:
+    image: redis:latest
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./redis-data:/var/lib/redis
+      - ./redis.conf:/usr/local/etc/redis/redis.conf
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+  web:
+    build: .
+    environment:
+      - ASYNC_DATABASE_URL=postgresql+asyncpg://root:root@db/blogdb
+      - HUNTER_API_KEY=3539893f0c37e371da06fb3f3de4346c3cbeba58
+    volumes:
+      - .:/BlogApplication
+    ports:
+      - "8000:8000"
+    command: bash -c 'while !</dev/tcp/db/5432; do sleep 1; done; alembic upgrade head && uvicorn blog_app:app --host 0.0.0.0 --reload'
+    restart: always
+    depends_on:
+      - db
+      - redis
+
+volumes:
+  postgres_data:
